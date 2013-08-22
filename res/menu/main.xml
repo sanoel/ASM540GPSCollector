@@ -1,0 +1,29 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+
+<item
+    android:id="@+id/menu_change_name"
+    android:showAsAction="never"
+    android:title="Change Name"
+    android:visible="true" />
+
+    <item
+    android:id="@+id/menu_add_point"
+    android:showAsAction="always"
+    android:icon="@drawable/content_new"
+    android:title="Add Point"
+    android:visible="true" />
+    
+    <item
+    android:id="@+id/menu_delete"
+    android:showAsAction="always"
+    android:title="Clear All Points"
+    android:icon="@drawable/content_discard"
+    android:visible="true"/>
+    
+    <item
+    android:id="@+id/menu_refresh_points"
+    android:showAsAction="always"
+    android:title="Refresh"
+    android:icon="@drawable/navigation_refresh"
+    android:visible="true"/>
+</menu>
