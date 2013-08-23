@@ -88,9 +88,8 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 	        edit = prefs.edit();
 	        edit.putBoolean("first_start", false);
 	        edit.commit();
-		} else {
-			username = prefs.getString(username, username);
 		}
+		username = prefs.getString("username", getRandomUsername());
 		MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map);
 		map = mapFragment.getMap();
 		map.setMapType(GoogleMap.MAP_TYPE_HYBRID);
@@ -101,22 +100,7 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 		map.setOnMapClickListener(this);
 		
 		featureLayer = new ArcGISFeatureLayer("http://buckeye.agriculture.purdue.edu:6080/ArcGIS/rest/services/GPSCollectorService/FeatureServer/0", ArcGISFeatureLayer.MODE.ONDEMAND);
-		featureLayerPoints.clear();
-		Query query = new Query();
-		query.setWhere("OBJECTID > -1");
-		featureLayer.selectFeatures(query, SELECTION_METHOD.NEW, new CallbackListener<FeatureSet>() {
-			public void onError(Throwable e) {
-				Log.d("onerror", "Select Features Error" + e.getLocalizedMessage());
-			}
-
-			public void onCallback(FeatureSet queryResults) {
-				for (int i = 0; i < queryResults.getGraphics().length; i++) {
-					Point pt = (Point) queryResults.getGraphics()[i].getGeometry();
-					fLPoints.add(pt);
-//					Log.w("update", marker.getPosition().toString());
-				}
-			}
-		});
+		synchMarkers();
 	}
 
 	@Override
@@ -157,7 +141,7 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 			}
 			return true;
 		} else if (item.getItemId() == R.id.menu_refresh_points) {
-			updatePointsList();
+			synchMarkers();
 		}
 		return true;
 	}
@@ -182,16 +166,11 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 	}
 	
 	private void deletePoint() {
-		featureLayerPoints.remove(markerClicked);
-		markerClicked.remove();
-		featureLayer.clearSelection();
-		Query query = new Query();
 		Point removePoint = new Point(markerClicked.getPosition().longitude, markerClicked.getPosition().latitude);
-		Log.w("de", Boolean.toString(fLPoints.remove(removePoint)));
-		fLPoints.remove(removePoint);
-
+		Query query = new Query();
 		query.setGeometry(removePoint);
 		query.setSpatialRelationship(SpatialRelationship.INTERSECTS);
+		markerClicked.remove();
 		featureLayer.selectFeatures(query, ArcGISFeatureLayer.SELECTION_METHOD.NEW, new CallbackListener<FeatureSet>() {
 
 			// handle any errors
@@ -217,14 +196,11 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 				}
 			}
 		});
-		MARKER_SELECTED = true;
+		MARKER_SELECTED = false;
 	}
 	
 	public void deleteAllPoints() {
-		featureLayerPoints.clear();
-		fLPoints.clear();
 		map.clear();
-		featureLayer.clearSelection();
 		Query query = new Query();
 		query.setWhere("OBJECTID > -1");
 		featureLayer.selectFeatures(query, SELECTION_METHOD.NEW, new CallbackListener<FeatureSet>() {
@@ -250,8 +226,10 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 		});
 	}
 
-	public boolean updatePointsList() {
+	public boolean synchMarkers() {
 		map.clear();
+		featureLayerPoints.clear();
+		fLPoints.clear();
 		Query query = new Query();
 		query.setWhere("OBJECTID > -1");
 		featureLayer.selectFeatures(query, SELECTION_METHOD.NEW, new CallbackListener<FeatureSet>() {
@@ -262,19 +240,21 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 			public void onCallback(FeatureSet queryResults) {
 				for (int i = 0; i < queryResults.getGraphics().length; i++) {
 					Point pt = (Point) queryResults.getGraphics()[i].getGeometry();
-					if (!fLPoints.contains(pt)) {
-						fLPoints.add(pt);
-					}
+					fLPoints.add(pt);
 				}
+				runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                    	for (int i = 0; i < fLPoints.size(); i++) {
+                			featureLayerPoints.add(map.addMarker(new MarkerOptions()
+                				.position(new LatLng(fLPoints.get(i).getY(), fLPoints.get(i).getX()))
+                				.title(username)));
+                			Log.w("marker", featureLayerPoints.get(i).toString());
+                		}
+                    }
+             });
 			}
 		});
-
-		for (int i = 0; i < fLPoints.size(); i++) {
-			featureLayerPoints.add(map.addMarker(new MarkerOptions()
-				.position(new LatLng(fLPoints.get(i).getY(), fLPoints.get(i).getX()))
-				.title(username)));
-			Log.w("marker", featureLayerPoints.get(i).toString());
-		}
 		return true;
 	}
 
@@ -330,10 +310,10 @@ public class MainActivity extends Activity implements LocationListener, OnMarker
 		builder.show();
 	}
 	
-	public void getRandomUsername() {
+	public String getRandomUsername() {
 		Random generator = new Random();
 		int r = generator.nextInt(Integer.MAX_VALUE) + 1;
-		username = "user" + Integer.toString(r);
+		return username = "user" + Integer.toString(r);
 	}
 
 	public void onGpsStatusChanged(int event) {
